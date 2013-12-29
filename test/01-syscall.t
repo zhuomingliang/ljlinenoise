@@ -6,11 +6,13 @@ if not jit then
     skip_all 'not LuaJIT'
 end
 
-plan(2)
+plan(4)
 
 local S = require 'syscall'
 
 ok( S.stdin:isatty(), "isatty" )
 
-todo( "TIOCGWINSZ", 1 )
-ok( S.ioctl(S.stdout, 'TIOCGWINSZ'), "winsize" )
+local ws = S.ioctl(S.stdin, 'TIOCGWINSZ')
+ok( ws, "winsize" )
+type_ok( ws.ws_col, 'number', 'ws_col' )
+ok( ws.ws_col >= 0 )
