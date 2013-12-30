@@ -59,7 +59,7 @@ end
 
 function H:setmaxlen (len)
     len = tonumber(len)
-    if len == nil then
+    if not len then
         return nil, "bad argument #1 to setmaxlen (number expected)"
     end
     if len <= 0 then
@@ -150,7 +150,7 @@ function ED:Insert (c)
         self.history:updatelast(self.line)
         if self.plen + #self.line < self.cols then
             -- Avoid a full update of the line in the trivial case.
-            assert(stdout:write(c))
+            assert(self.fd:write(c))
         else
             self:refreshLine()
         end
@@ -479,7 +479,7 @@ local function setcompletion (fn)
 end
 
 local function addcompletion (t, entry)
-    insert(t, entry)
+    insert(t, tostring(entry))
     return true
 end
 

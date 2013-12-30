@@ -4,7 +4,7 @@ local l = require 'linenoise'
 
 require 'Test.More'
 
-plan(34)
+plan(36)
 
 local h1 = l.new_history()
 type_ok( h1, 'table', "history" )
@@ -63,6 +63,10 @@ ok( h2:load'test.txt', "load" )
 is( #h2, 4, "restored" )
 is( h2[1], 'line6', "line6" )
 is( h2[4], 'line9', "line9" )
+
+h2:updatelast'line0'
+is( #h2, 4, "updatelast" )
+is( h2[4], 'line0' )
 
 local r, msg = h2:load'no_file'
 nok( r, "load no file" )
