@@ -6,4 +6,5 @@
 /*.tar.gz
 
 *.txt
+luacov.*.out
 

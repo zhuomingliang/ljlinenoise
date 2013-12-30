@@ -103,7 +103,7 @@ README.html: README.md
 
 clean:
 	rm -rf doc
-	rm -f MANIFEST *.bak src/luacov.*.out *.rockspec README.html
+	rm -f MANIFEST *.bak src/luacov.*.out *.rockspec README.html *.txt src/*.txt eg/*.txt
 
 realclean: clean
 
