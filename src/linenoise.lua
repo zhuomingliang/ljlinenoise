@@ -4,10 +4,13 @@
 --
 
 local assert = assert
+local error = error
 local setmetatable = setmetatable
 local tonumber =tonumber
 local tostring = tostring
 local type = type
+local xpcall = xpcall
+local traceback = require'debug'.traceback
 local open = require'io'.open
 local insert = require'table'.insert
 local remove = require'table'.remove
@@ -424,12 +427,22 @@ local function linenoise (prompt)
         return io.stdin:read('*L')
     else
         if stdin:isatty() then
-            enableRawMode(stdin)
-            local ed = new_edit(stdin, prompt, getColumns(), history)
-            local line = ed:Edit()
-            disableRawMode(stdin)
-            stdout:write('\n')
-            return line
+            local r, out = xpcall(function ()
+                enableRawMode(stdin)
+                local ed = new_edit(stdin, prompt, getColumns(), history)
+                local line = ed:Edit()
+                disableRawMode(stdin)
+                stdout:write('\n')
+                return line
+            end, function (err)
+                disableRawMode(stdin)
+                return traceback(err)
+            end)
+            if r then
+                return out
+            else
+                error(out, 0)
+            end
         else
             return io.stdin:read('*L')
         end
