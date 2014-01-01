@@ -1,6 +1,6 @@
 
 LUA     := luajit
-VERSION := $(shell cd src && $(LUA) -e "m = require [[linenoise]]; print(m._VERSION)")
+VERSION := $(shell cd src && $(LUA) -lbogus -e "m = require [[linenoise]]; print(m._VERSION)")
 TARBALL := ljlinenoise-$(VERSION).tar.gz
 REV     := 1
 
