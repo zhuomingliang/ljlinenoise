@@ -1,0 +1,170 @@
+#!/usr/bin/env luajit
+--
+-- ljlinenoise : <http://fperrad.github.io/ljlinenoise/>
+--
+
+local copyright = "Lua REPL\tCopyright (C) 2014 Francois Perrad"
+
+-- works with lua-linenoise instead of ljlinenoise/ljsyscall
+local isatty = true
+pcall(function ()
+    isatty = require'syscall'.stdin:isatty()
+end)
+
+local function dofile (fname)
+    local f, msg = loadfile(fname)
+    if f then
+        f()
+    else
+       error(msg, 0)
+    end
+end
+
+local function dostring (chunk, name)
+    local f, msg = load(chunk, name)
+    if f then
+        f()
+    else
+       error(msg, 0)
+    end
+end
+
+local function dolibrary (name)
+    local r, msg = pcall(require, name)
+    if r then
+        return r
+    else
+        error(msg, 0)
+    end
+end
+
+local function handle_script (script)
+    local fname = arg[script]
+    arg[-2] = arg[-1]
+    arg[-1] = arg[0]
+    arg[0] = fname
+    for i = script+1, #arg do
+        arg[i-script] = arg[i]
+    end
+    if fname == '-' then
+        fname = nil
+    end
+    dofile(fname)
+end
+
+local function dotty ()
+    local l = require 'linenoise'
+    local history = '.history_lua'
+    l.loadhistory(history)
+    for line in l.lines( '> ') do
+        if #line > 0 then
+            local r, msg = pcall(function () dostring(line, '=stdin') end)
+            if msg then
+                print(msg)
+            end
+            l.addhistory(line)
+            l.savehistory(history)
+        end
+    end
+end
+
+local function collectargs (opt)
+    local i = 1
+    while i <= #arg do
+        local args = arg[i]
+        if args:sub(1, 1) ~= '-' then   -- not an option?
+            return i
+        end
+        local arg1 = args:sub(2, 2)
+        if arg1 == '-' then
+            if #args > 2 then return nil end
+            return arg[i+1] and i+1 or 0
+        elseif arg1 == '' then
+            return i
+        elseif arg1 == 'i' then
+            if #args > 2 then return nil end
+            opt.i = true
+            opt.v = true
+        elseif arg1 == 'v' then
+            if #args > 2 then return nil end
+            opt.v = true
+        elseif arg1 == 'e' then
+            opt.e = true
+            if #args == 2 then
+                i = i + 1
+                if arg[i] == nil then return nil, args end
+            end
+        elseif arg1 == 'l' then
+            if #args == 2 then
+                i = i + 1
+                if arg[i] == nil then return nil, args end
+            end
+        else
+            return nil, args    -- invalid option
+        end
+        i = i + 1
+    end
+    return i
+end
+
+local function runargs(n)
+    local i = 1
+    while i < n do
+        local args = arg[i]
+        local arg2 = args:sub(1, 2)
+        if arg2 == '-e' then
+           local chunk = args:sub(3)
+           if chunk == '' then
+                i = i + 1
+                chunk = arg[i]
+           end
+           dostring(chunk, "=(command line)")
+        elseif arg2 == '-l' then
+           local name = args:sub(3)
+           if name == '' then
+                i = i + 1
+                name = arg[i]
+           end
+           dolibrary(name)
+        end
+        i = i + 1
+    end
+end
+
+local opt = {}
+local script, badoption = collectargs(opt)
+if not script then
+    if badoption == '-e' or badoption == '-l' then
+        io.stderr:write("lrepl: '" .. badoption .. "' needs argument\n")
+    elseif badoption then
+        io.stderr:write("lrepl: unrecognized option '" .. badoption .. "'\n")
+    end
+    io.stderr:write [=[
+usage: lrepl [options] [script [args]]
+Available options are:
+  -e stat  execute string 'stat'
+  -i       enter interactive mode after executing 'script'
+  -l name  require library 'name'
+  -v       show version information
+  --       stop handling options
+  -        stop handling options and execute stdin
+]=]
+    os.exit(1)
+end
+if opt.v then
+    print(copyright)
+end
+runargs(script)
+if arg[script] then
+    handle_script(script)
+end
+if opt.i then
+    dotty()
+elseif not arg[script] and not opt.e and not opt.v then
+    if isatty then
+        print(copyright)
+        dotty()
+    else
+        dofile()
+    end
+end
