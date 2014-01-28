@@ -3,13 +3,19 @@
 -- ljlinenoise : <http://fperrad.github.io/ljlinenoise/>
 --
 
-local copyright = "Lua REPL\tCopyright (C) 2014 Francois Perrad"
+local copyright = "LuaJIT REPL\tCopyright (C) 2014 Francois Perrad"
 
 -- works with lua-linenoise instead of ljlinenoise/ljsyscall
 local isatty = true
 pcall(function ()
     isatty = require'syscall'.stdin:isatty()
 end)
+
+local function jit_status ()
+    local t = { jit.status() }
+    t[1] = 'JIT: ' .. (t[1] and 'ON' or 'OFF')
+    return table.concat(t, ' ')
+end
 
 local function dofile (fname)
     local f, msg = loadfile(fname)
@@ -31,6 +37,59 @@ end
 
 local function dolibrary (name)
     local r, msg = pcall(require, name)
+    if r then
+        return r
+    else
+        error(msg, 0)
+    end
+end
+
+local function runcmdopt (f, opt)
+    local r, msg
+    if opt == '' then
+        r, msg = pcall(f)
+    else
+        r, msg = pcall(f, opt:match((opt:gsub("[^,]+", "([^,]+)"))))
+    end
+    if r then
+        return r
+    else
+        error(msg, 0)
+    end
+end
+
+local function loadjitmodule (name)
+    local r, mod = pcall(require, 'jit.' .. name)
+    if not r then
+        error("unknown luaJIT command or jit.* modules not installed", 0)
+    end
+    return mod.start
+end
+
+local function dojitcmd (cmd)
+    local opt
+    cmd, opt = cmd:match("([^=]*)=?(.*)")
+    local f = jit[cmd]
+    if type(f) ~= 'function' then
+        f = loadjitmodule(cmd)
+    end
+    return runcmdopt(f, opt)
+end
+
+local function dojitopt (opt)
+    return runcmdopt(jit.opt.start, opt)
+end
+
+local function dobytecode (n)
+    local t = {}
+    local argn = arg[n]:sub(3)
+    if argn then
+        t[1] = '-' .. argn
+    end
+    for i = n+1, #arg do
+        t[#t+1] = arg[i]
+    end
+    local r, msg = pcall(loadjitmodule('bcsave'), unpack(t))
     if r then
         return r
     else
@@ -92,15 +151,23 @@ local function collectargs (opt)
             opt.exec = true
             if #args == 2 then
                 i = i + 1
-                if arg[i] == nil then return nil, args end
+                if arg[i] == nil then return nil end
             end
-        elseif arg1 == 'l' then
+        elseif arg1 == 'l' or arg1 == 'j' then
             if #args == 2 then
                 i = i + 1
-                if arg[i] == nil then return nil, args end
+                if arg[i] == nil then return nil end
             end
+        elseif arg1 == 'O' then
+            -- nothing
+        elseif arg1 == 'b' then
+            if opt.version or opt.interactive then
+                return nil
+            end
+            opt.exec = true
+            return i + 1
         else
-            return nil, args    -- invalid option
+            return nil  -- invalid option
         end
         i = i + 1
     end
@@ -126,43 +193,54 @@ local function runargs(n)
                 name = arg[i]
             end
             dolibrary(name)
+        elseif arg2 == '-j' then
+            local cmd = args:sub(3)
+            if cmd == '' then
+                i = i + 1
+                cmd = arg[i]
+            end
+            dojitcmd(cmd)
+        elseif arg2 == '-O' then
+            dojitopt(args:sub(3))
+        elseif arg2 == '-b' then
+            return dobytecode(i)
         end
         i = i + 1
     end
 end
 
-local progname = 'lrepl'
+local progname = arg[0]
 local opt = {}
-local script, badoption = collectargs(opt)
+local script = collectargs(opt)
 if not script then
-    if badoption == '-e' or badoption == '-l' then
-        io.stderr:write(string.format("%s: '%s' needs argument\n", progname, badoption))
-    elseif badoption then
-        io.stderr:write(string.format("%s: unrecognized option '%s'\n", progname, badoption))
-    end
     io.stderr:write(string.format([=[
-usage: %s [options] [script [args]]
+usage: %s [options]... [script [args]...].
 Available options are:
-  -e stat  execute string 'stat'
-  -i       enter interactive mode after executing 'script'
-  -l name  require library 'name'
-  -v       show version information
-  --       stop handling options
-  -        stop handling options and execute stdin
+  -e chunk  Execute string 'chunk'.
+  -l name   Require library 'name'.
+  -b ...    Save or list bytecode.
+  -j cmd    Perform LuaJIT control command.
+  -O[opt]   Control LuaJIT optimizations.
+  -i        Enter interactive mode after executing 'script'.
+  -v        Show version information.
+  --        Stop handling options.
+  -         Execute stdin and stop handling options.
 ]=], progname))
 else
     if opt.version then
         print(copyright)
     end
-    runargs(script)             -- execute arguments -e and -l
+    runargs(script)             -- execute arguments
     if arg[script] then
         handle_script(script)   -- execute main script
     end
     if opt.interactive then
+        print(jit_status())
         dotty()
     elseif not arg[script] and not opt.exec and not opt.version then
         if isatty then
             print(copyright)
+            print(jit_status())
             dotty()
         else
             dofile()            -- executes stdin as a file

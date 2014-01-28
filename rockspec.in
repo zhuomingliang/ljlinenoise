@@ -29,6 +29,7 @@ build = {
     install = {
         bin = {
             'src/lrepl',
+            'src/ljrepl',
         }
     },
     copy_directories = { 'doc', 'test' },
