@@ -511,9 +511,9 @@ return {
     new_history = HARNESS_ACTIVE and new_history or nil,
     new_edit = HARNESS_ACTIVE and new_edit or nil,
     -- Info
-    _VERSION = '0.1.0',
+    _VERSION = '0.1.1',
     _DESCRIPTION = "ljlinenoise : Line editing in pure LuaJIT",
-    _COPYRIGHT = "Copyright (c) 2013 Francois Perrad",
+    _COPYRIGHT = "Copyright (c) 2013-2014 Francois Perrad",
 }
 
 --
