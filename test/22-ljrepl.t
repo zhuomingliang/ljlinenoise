@@ -2,9 +2,13 @@
 
 require 'Test.More'
 
+if os.getenv'TRAVIS' then
+    skip_all "too old LuaJIT on Travis CI"
+end
+
 local lua = './ljrepl'
 
-plan(32)
+plan(33)
 
 f = io.open('hello.lua', 'w')
 f:write([[
@@ -40,9 +44,6 @@ f:close()
 
 cmd = lua .. [[ -e "error(setmetatable({}, {__tostring=function() return 'MSG' end}))"  2>&1]]
 f = io.popen(cmd)
-if os.getenv'TRAVIS' then
-    todo("too old LuaJIT on Travis CI", 2)
-end
 like(f:read'*l', "^[^:]+: MSG", "error with object")
 is(f:read'*l', "stack traceback:", "backtrace")
 f:close()
@@ -80,9 +81,14 @@ like(f:read'*l', '^Lua', "-v & script")
 is(f:read'*l', 'Hello World')
 f:close()
 
+cmd = lua .. [[ -E hello.lua 2>&1]]
+f = io.popen(cmd)
+is(f:read'*l', 'Hello World')
+f:close()
+
 cmd = lua .. [[ -u 2>&1]]
 f = io.popen(cmd)
-like(f:read'*l', "^usage: ", "no file")
+like(f:read'*l', "^usage: ", "unknown option")
 f:close()
 
 cmd = lua .. [[ -lTest.More -e "print(type(ok))"]]
@@ -127,7 +133,7 @@ f:close()
 
 cmd = lua .. [[ -Obad hello.lua 2>&1]]
 f = io.popen(cmd)
-is(f:read'*l', "luajit: unknown or malformed optimization flag 'bad'", "-Obad & script")
+like(f:read'*l', "^[^:]+: unknown or malformed optimization flag 'bad'", "-Obad & script")
 f:close()
 
 cmd = lua .. [[ -j off hello.lua 2>&1]]
@@ -142,7 +148,7 @@ f:close()
 
 cmd = lua .. [[ -jbad hello.lua 2>&1]]
 f = io.popen(cmd)
-is(f:read'*l', "luajit: unknown luaJIT command or jit.* modules not installed", "-jbad & script")
+like(f:read'*l', "^[^:]+: unknown luaJIT command or jit.* modules not installed", "-jbad & script")
 f:close()
 
 cmd = lua .. [[ -bl hello.lua 2>&1]]

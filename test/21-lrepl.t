@@ -2,9 +2,13 @@
 
 require 'Test.More'
 
+if os.getenv'TRAVIS' then
+    skip_all "too old LuaJIT on Travis CI"
+end
+
 local lua = './lrepl'
 
-plan(23)
+plan(24)
 
 f = io.open('hello.lua', 'w')
 f:write([[
@@ -40,9 +44,6 @@ f:close()
 
 cmd = lua .. [[ -e "error(setmetatable({}, {__tostring=function() return 'MSG' end}))"  2>&1]]
 f = io.popen(cmd)
-if os.getenv'TRAVIS' then
-    todo("too old LuaJIT on Travis CI", 1)
-end
 like(f:read'*l', "^[^:]+: MSG", "error with object")
 f:close()
 
@@ -77,6 +78,11 @@ f:close()
 cmd = lua .. [[ -v hello.lua 2>&1]]
 f = io.popen(cmd)
 like(f:read'*l', '^Lua', "-v & script")
+is(f:read'*l', 'Hello World')
+f:close()
+
+cmd = lua .. [[ -E hello.lua 2>&1]]
+f = io.popen(cmd)
 is(f:read'*l', 'Hello World')
 f:close()
 

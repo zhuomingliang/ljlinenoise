@@ -1,4 +1,4 @@
-#!/usr/bin/env luajit
+#!/usr/bin/luajit -E
 --
 -- ljlinenoise : <http://fperrad.github.io/ljlinenoise/>
 --
@@ -81,6 +81,8 @@ local function collectargs (opt)
             return arg[i+1] and i+1 or 0
         elseif arg1 == '' then
             return i
+        elseif arg1 == 'E' then
+            opt.no_env = true
         elseif arg1 == 'i' then
             if #args > 2 then return nil end
             opt.interactive = true
@@ -131,6 +133,28 @@ local function runargs(n)
     end
 end
 
+local function handle_luainit ()
+    local name = 'LUA_INIT_5_2'
+    local init = os.getenv(name)
+    if not init then
+        name = 'LUA_INIT'
+        init = os.getenv(name)
+    end
+    if init then
+        if init:sub(1, 1) == '@' then
+            dofile(init:sub(2))
+        else
+            dostring(init, '=' .. name)
+        end
+    end
+end
+
+local function setpath (name, val)
+    if val then
+        package[name] = val:gsub(';;', ';' .. package[name] .. ';')
+    end
+end
+
 local progname = 'lrepl'
 local opt = {}
 local script, badoption = collectargs(opt)
@@ -147,12 +171,18 @@ Available options are:
   -i       enter interactive mode after executing 'script'
   -l name  require library 'name'
   -v       show version information
+  -E       ignore environment variables
   --       stop handling options
   -        stop handling options and execute stdin
 ]=], progname))
 else
     if opt.version then
         print(copyright)
+    end
+    if not opt.no_env then
+        setpath('path', os.getenv('LUA_PATH') or os.getenv('LUA_PATH_5_2'))
+        setpath('cpath', os.getenv('LUA_CPATH') or os.getenv('LUA_CPATH_5_2'))
+        handle_luainit()
     end
     runargs(script)             -- execute arguments -e and -l
     if arg[script] then

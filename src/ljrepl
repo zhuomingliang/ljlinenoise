@@ -1,4 +1,4 @@
-#!/usr/bin/env luajit
+#!/usr/bin/luajit -E
 --
 -- ljlinenoise : <http://fperrad.github.io/ljlinenoise/>
 --
@@ -166,6 +166,8 @@ local function collectargs (opt)
             end
             opt.exec = true
             return i + 1
+        elseif arg1 == 'E' then
+            opt.no_env = true
         else
             return nil  -- invalid option
         end
@@ -209,6 +211,23 @@ local function runargs(n)
     end
 end
 
+local function handle_luainit ()
+    local init = os.getenv('LUA_INIT')
+    if init then
+        if init:sub(1, 1) == '@' then
+            dofile(init:sub(2))
+        else
+            dostring(init, '=LUA_INIT')
+        end
+    end
+end
+
+local function setpath (name, val)
+    if val then
+        package[name] = val:gsub(';;', ';' .. package[name] .. ';')
+    end
+end
+
 local progname = arg[0]
 local opt = {}
 local script = collectargs(opt)
@@ -223,12 +242,18 @@ Available options are:
   -O[opt]   Control LuaJIT optimizations.
   -i        Enter interactive mode after executing 'script'.
   -v        Show version information.
+  -E        Ignore environment variables.
   --        Stop handling options.
   -         Execute stdin and stop handling options.
 ]=], progname))
 else
     if opt.version then
         print(copyright)
+    end
+    if not opt.no_env then
+        setpath('path', os.getenv('LUA_PATH'))
+        setpath('cpath', os.getenv('LUA_CPATH'))
+        handle_luainit()
     end
     runargs(script)             -- execute arguments
     if arg[script] then
