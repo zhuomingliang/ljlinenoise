@@ -20,18 +20,18 @@ end
 local function dofile (fname)
     local f, msg = loadfile(fname)
     if f then
-        f()
+        return f()
     else
-       error(msg, 0)
+        error(msg, 0)
     end
 end
 
 local function dostring (chunk, name)
     local f, msg = load(chunk, name)
     if f then
-        f()
+        return f()
     else
-       error(msg, 0)
+        error(msg, 0)
     end
 end
 
@@ -117,7 +117,10 @@ local function dotty ()
     l.loadhistory(history)
     for line in l.lines( '> ') do
         if #line > 0 then
-            local r, msg = pcall(function () dostring(line, '=stdin') end)
+            if line:sub(1, 1) == '=' then
+                line = 'return ' .. line:sub(2)
+            end
+            local r, msg = pcall(function () return dostring(line, '=stdin') end)
             if msg then
                 print(msg)
             end
